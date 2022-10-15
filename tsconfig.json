@@ -10,7 +10,10 @@
     "skipLibCheck": true,
     "allowSyntheticDefaultImports": true,
     "moduleResolution": "node",
-    "lib": ["es6", "dom"],
+    "lib": [
+      "es6",
+      "dom"
+    ],
     "esModuleInterop": true,
     "strict": true,
     "forceConsistentCasingInFileNames": true,
@@ -20,5 +23,8 @@
     "index.js",
     "javascript/**/*",
     "index.d.ts"
+  ],
+  "exclude": [
+    "lib/"
   ]
 }

@@ -6,9 +6,9 @@
     "access": "public"
   },
   "author": "React Native Mapbox Team",
-  "main": "./javascript/index.js",
-  "browser": "./javascript/index.web.js",
-  "react-native": "./javascript/index.js",
+  "main": "./lib/javascript/index.js",
+  "browser": "./lib/javascript/index.web.js",
+  "react-native": "./lib/javascript/index.js",
   "keywords": [
     "gl",
     "ios",
@@ -29,6 +29,7 @@
     "unittest:single": "jest --testNamePattern",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
+    "type:build": "npx tsc",
     "type:check": "npx tsc --noEmit",
     "test:plugin": "expo-module test plugin",
     "build:plugin": "npx tsc --build plugin",
