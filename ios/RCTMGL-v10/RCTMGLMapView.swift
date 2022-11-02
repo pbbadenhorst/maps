@@ -15,7 +15,7 @@ open class RCTMGLMapView : MapView {
   var styleLoaded: Bool = false
   var styleLoadWaiters : [(MapboxMap)->Void] = []
 
-  var reactCamera : RCTMGLCamera?
+  weak var reactCamera : RCTMGLCamera?
   var images : [RCTMGLImages] = []
   var sources : [RCTMGLInteractiveElement] = []
   
@@ -135,6 +135,14 @@ open class RCTMGLMapView : MapView {
 
   
   // MARK: - React Native properties
+
+  @objc func setReactProjection(_ value: String?) {
+    if let value = value {
+      var projection = StyleProjection(name: value == "globe" ? .globe : .mercator)
+      try! self.mapboxMap.style.setProjection(projection)
+    }
+  }
+  
   
   @objc func setReactAttributionEnabled(_ value: Bool) {
     mapView.ornaments.options.attributionButton.visibility = value ? .visible : .hidden
@@ -188,15 +196,15 @@ open class RCTMGLMapView : MapView {
     let glPosition = MapboxGLPosition(rawValue: position)
     switch glPosition {
     case .topLeft:
-      return .topLeft
+      return .topLeading
     case .bottomRight:
-      return .bottomRight
+      return .bottomTrailing
     case .topRight:
-      return .topRight
+      return .topTrailing
     case .bottomLeft:
-      return .bottomLeft
+      return .bottomLeading
     case .none:
-      return .topLeft
+      return .topLeading
     }
   }
   
@@ -231,7 +239,7 @@ open class RCTMGLMapView : MapView {
   }
 
   @objc func setReactRotateEnabled(_ value: Bool) {
-    self.mapView.gestures.options.pinchRotateEnabled = value
+    self.mapView.gestures.options.rotateEnabled = value
   }
 
   @objc func setReactPitchEnabled(_ value: Bool) {
@@ -251,20 +259,20 @@ open class RCTMGLMapView : MapView {
     }
   }
 
-  private func getOrnamentOptionsFromPosition(_ position: [String: Int]!) -> (position: OrnamentPosition, margins: CGPoint)? {
+  private func getOrnamentOptionsFromPosition(_ position: [String: Int]) -> (position: OrnamentPosition, margins: CGPoint)? {
     let left = position["left"]
     let right = position["right"]
     let top = position["top"]
     let bottom = position["bottom"]
     
     if let left = left, let top = top {
-      return (OrnamentPosition.topLeft, CGPoint(x: left, y: top))
+      return (OrnamentPosition.topLeading, CGPoint(x: left, y: top))
     } else if let right = right, let top = top {
-      return (OrnamentPosition.topRight, CGPoint(x: right, y: top))
+      return (OrnamentPosition.topTrailing, CGPoint(x: right, y: top))
     } else if let bottom = bottom, let right = right {
-      return (OrnamentPosition.bottomRight, CGPoint(x: right, y: bottom))
+      return (OrnamentPosition.bottomTrailing, CGPoint(x: right, y: bottom))
     } else if let bottom = bottom, let left = left {
-      return (OrnamentPosition.bottomLeft, CGPoint(x: left, y: bottom))
+      return (OrnamentPosition.bottomLeading, CGPoint(x: left, y: bottom))
     }
     
     return nil
@@ -274,10 +282,26 @@ open class RCTMGLMapView : MapView {
 // MARK: - event handlers
 
 extension RCTMGLMapView {
+  private func onEvery<Payload>(event: MapEvents.Event<Payload>, handler: @escaping  (RCTMGLMapView, MapEvent<Payload>) -> Void) {
+    self.mapView.mapboxMap.onEvery(event: event) { [weak self](mapEvent) in
+      guard let self = self else { return }
+
+      handler(self, mapEvent)
+    }
+  }
+
+  private func onNext<Payload>(event: MapEvents.Event<Payload>, handler: @escaping  (RCTMGLMapView, MapEvent<Payload>) -> Void) {
+    self.mapView.mapboxMap.onNext(event: event) { [weak self](mapEvent) in
+      guard let self = self else { return }
+
+      handler(self, mapEvent)
+    }
+  }
+
   @objc func setReactOnMapChange(_ value: @escaping RCTBubblingEventBlock) {
     self.reactOnMapChange = value
 
-    self.mapView.mapboxMap.onEvery(event: .cameraChanged, handler: { cameraEvent in
+    self.onEvery(event: .cameraChanged, handler: { (self, cameraEvent) in
       self.wasGestureActive = self.isGestureActive
       if self.handleMapChangedEvents.contains(.regionIsChanging) {
         let event = RCTMGLEvent(type:.regionIsChanging, payload: self.buildRegionObject());
@@ -288,7 +312,7 @@ extension RCTMGLMapView {
       }
     })
 
-    self.mapView.mapboxMap.onEvery(event: .mapIdle, handler: { cameraEvent in
+    self.onEvery(event: .mapIdle, handler: { (self, cameraEvent) in
       if self.handleMapChangedEvents.contains(.regionDidChange) {
         let event = RCTMGLEvent(type:.regionDidChange, payload: self.buildRegionObject());
         self.fireEvent(event: event, callback: self.reactOnMapChange)
@@ -359,7 +383,7 @@ extension RCTMGLMapView {
   }
   
   public func setupEvents() {
-    self.mapboxMap.onEvery(event: .mapLoadingError, handler: {(event) in
+    self.onEvery(event: .mapLoadingError, handler: {(self, event) in
       if let message = event.payload.error.errorDescription {
         Logger.log(level: .error, message: "MapLoad error \(message)")
       } else {
@@ -367,7 +391,7 @@ extension RCTMGLMapView {
       }
     })
     
-    self.mapboxMap.onEvery(event: .styleImageMissing) { (event) in
+    self.onEvery(event: .styleImageMissing) { (self, event) in
       let imageName = event.payload.id
       
       self.images.forEach {
@@ -381,7 +405,7 @@ extension RCTMGLMapView {
       }
     }
 
-    self.mapboxMap.onEvery(event: .renderFrameFinished, handler: { (event) in
+    self.onEvery(event: .renderFrameFinished, handler: { (self, event) in
       var type = RCTMGLEvent.EventType.didFinishRendering
       if event.payload.renderMode == .full {
         type = .didFinishRenderingFully
@@ -395,12 +419,12 @@ extension RCTMGLMapView {
       self.fireEvent(event: event, callback: self.reactOnMapChange)
     })
 
-    self.mapboxMap.onNext(event: .mapLoaded, handler: { (event) in
+    self.onNext(event: .mapLoaded, handler: { (self, event) in
       let event = RCTMGLEvent(type:.didFinishLoadingMap, payload: nil);
       self.fireEvent(event: event, callback: self.reactOnMapChange)
     })
     
-    self.mapboxMap.onEvery(event: .styleLoaded, handler: { (event) in
+    self.onEvery(event: .styleLoaded, handler: { (self, event) in
       self.onStyleLoadedComponents.forEach { (component) in
         component.addToMap(self, style: self.mapboxMap.style)
       }
@@ -520,7 +544,7 @@ extension RCTMGLMapView: GestureManagerDelegate {
         let options = RenderedQueryOptions(
           layerIds: source.getLayerIDs(), filter: nil
         )
-        self.mapboxMap.queryRenderedFeatures(in: hitboxRect, options: options) {
+        self.mapboxMap.queryRenderedFeatures(with: hitboxRect, options: options) {
           result in
           
           var newHits = hits
@@ -772,12 +796,6 @@ class PointAnnotationManager : AnnotationInteractionDelegate {
           }
         }
       }
-      /*
-      
-         let rctmglPointAnnotation = userInfo[RCTMGLPointAnnotation.key] as? WeakRef<RCTMGLPointAnnotation>,
-         let rctmglPointAnnotation = rctmglPointAnnotation.object {
-        rctmglPointAnnotation.didTap()
-      }*/
     }
   }
   
@@ -874,12 +892,6 @@ class PointAnnotationManager : AnnotationInteractionDelegate {
           }
         }
       }
-      /*
-      
-         let rctmglPointAnnotation = userInfo[RCTMGLPointAnnotation.key] as? WeakRef<RCTMGLPointAnnotation>,
-         let rctmglPointAnnotation = rctmglPointAnnotation.object {
-        rctmglPointAnnotation.didTap()
-      }*/
     }
   }
   
@@ -896,8 +908,8 @@ class PointAnnotationManager : AnnotationInteractionDelegate {
     }
       switch sender.state {
         case .began:
-          mapFeatureQueryable.queryRenderedFeatures(
-            at: sender.location(in: sender.view),
+        mapFeatureQueryable.queryRenderedFeatures(
+          with: sender.location(in: sender.view),
             options: options) { [weak self] (result) in
               
               guard let self = self else { return }

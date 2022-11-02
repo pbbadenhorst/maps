@@ -1,5 +1,6 @@
 import Foundation
 import MapboxMaps
+import MapboxMobileEvents
 
 
 let DEFAULT_SOURCE_ID = "composite";
@@ -31,7 +32,11 @@ class MGLModule : NSObject {
       "StyleSource":
         ["DefaultSourceID": DEFAULT_SOURCE_ID],
       "LineJoin":
-        ["Round": LineJoin.round],
+        [
+          "Bevel": LineJoin.bevel.rawValue,
+          "Round": LineJoin.round.rawValue,
+          "Miter": LineJoin.miter.rawValue,
+        ],
       "LocationCallbackName":
         ["Update": RCT_MAPBOX_USER_LOCATION_UPDATE],
       "CameraModes":
@@ -56,7 +61,9 @@ class MGLModule : NSObject {
         [
           "Error": RCTMGLOfflineModule.Callbacks.error.rawValue,
           "Progress": RCTMGLOfflineModule.Callbacks.progress.rawValue
-        ]
+        ],
+      "TileServers":
+        ["Mapbox": "mapbox"]
     ];
   }
 
@@ -65,8 +72,12 @@ class MGLModule : NSObject {
       return true
   }
 
-  @objc func setAccessToken(_ token: String) {
+  @objc func setAccessToken(
+    _ token: String, 
+    resolver: RCTPromiseResolveBlock,
+    rejecter: RCTPromiseRejectBlock) {
       MGLModule.accessToken = token
+      resolver(token)
   }
 
   @objc func addCustomHeader(_ headerName: String, forHeaderValue headerValue: String ) {
@@ -75,5 +86,15 @@ class MGLModule : NSObject {
 
   @objc func removeCustomHeader(_ headerName: String) {
     CustomHttpHeaders.shared.customHeaders[headerName] = nil
+  }
+  
+  @objc func setTelemetryEnabled(_ telemetryEnabled: Bool) {
+    UserDefaults.mme_configuration().mme_isCollectionEnabled = telemetryEnabled
+  }
+
+  @objc func setWellKnownTileServer(_ tileServer: String) {
+    if tileServer != "mapbox" {
+      Logger.error("setWellKnownTileServer: \(tileServer) should be mapbox")
+    }
   }
 }

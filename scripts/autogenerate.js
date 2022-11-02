@@ -348,6 +348,9 @@ function isTranslate(attrName) {
 
 function isAttrSupported(attr, only) {
   const support = getAttributeSupport(attr['sdk-support']);
+  if (attr.private === true) {
+    return false;
+  }
   if (only != null) {
     return support.basic[only].android && support.basic[only].ios;
   }
@@ -453,7 +456,7 @@ async function generate() {
     },*/
     {
       input: path.join(TMPL_PATH, 'MapboxStyles.ts.ejs'),
-      output: path.join(JS_OUTPUT_PATH, 'MapboxStyles.ts'),
+      output: path.join(JS_OUTPUT_PATH, 'MapboxStyles.d.ts'),
     },
     {
       input: path.join(TMPL_PATH, 'RCTMGLStyle.m.ejs'),

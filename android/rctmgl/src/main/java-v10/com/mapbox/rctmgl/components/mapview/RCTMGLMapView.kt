@@ -23,7 +23,10 @@ import com.mapbox.maps.extension.style.expressions.generated.Expression
 import com.mapbox.maps.extension.style.layers.Layer
 import com.mapbox.maps.extension.style.layers.generated.*
 import com.mapbox.maps.extension.style.layers.getLayer
+import com.mapbox.maps.extension.style.layers.properties.generated.ProjectionName
 import com.mapbox.maps.extension.style.layers.properties.generated.Visibility
+import com.mapbox.maps.extension.style.projection.generated.Projection
+import com.mapbox.maps.extension.style.projection.generated.setProjection
 import com.mapbox.maps.plugin.annotation.Annotation
 import com.mapbox.maps.plugin.annotation.annotations
 import com.mapbox.maps.plugin.annotation.generated.*
@@ -89,6 +92,7 @@ open class RCTMGLMapView(private val mContext: Context, var mManager: RCTMGLMapV
     private val mImages: MutableList<RCTMGLImages>
     private var mPointAnnotationManager: PointAnnotationManager? = null
     private var mActiveMarkerID: Long = -1
+    private var mProjection: ProjectionName = ProjectionName.MERCATOR
     private var mStyleURL: String? = null
     val isDestroyed = false
     private var mCamera: RCTMGLCamera? = null
@@ -394,12 +398,24 @@ open class RCTMGLMapView(private val mContext: Context, var mManager: RCTMGLMapV
         return true
     }
 
+    fun setReactProjection(projection: ProjectionName) {
+        if (projection != null) {
+            mProjection = projection
+        }
+
+        if (mMap != null) {
+            mMap.getStyle()?.setProjection(Projection(projection))
+        }
+    }
+
     fun setReactStyleURL(styleURL: String) {
+        mStyleURL = styleURL
         if (mMap != null) {
             removeAllFeaturesFromMap()
             if (isJSONValid(mStyleURL)) {
                 mMap.loadStyleJson(styleURL, object : Style.OnStyleLoaded {
                     override fun onStyleLoaded(style: Style) {
+                        style.setProjection(Projection(mProjection))
                         addAllFeaturesToMap()
                     }
                 })
@@ -407,6 +423,7 @@ open class RCTMGLMapView(private val mContext: Context, var mManager: RCTMGLMapV
                 mMap.loadStyleUri(styleURL, object : Style.OnStyleLoaded {
                     override fun onStyleLoaded(style: Style) {
                         savedStyle = style
+                        style.setProjection(Projection(mProjection))
                         addAllFeaturesToMap()
                     }
                 },
@@ -730,7 +747,8 @@ open class RCTMGLMapView(private val mContext: Context, var mManager: RCTMGLMapV
     }
 
     fun queryRenderedFeaturesInRect(callbackID: String?, rect: RectF, filter: Expression?, layerIDs: List<String>?) {
-        val screenBox = ScreenBox(
+        val size = mMap!!.getMapOptions().size
+        val screenBox = if (rect.isEmpty()) ScreenBox(ScreenCoordinate(0.0, 0.0), ScreenCoordinate(size?.width!!.toDouble(), size?.height!!.toDouble())) else ScreenBox(
                 ScreenCoordinate(rect.right.toDouble(), rect.bottom.toDouble() ),
                 ScreenCoordinate(rect.left.toDouble(), rect.top.toDouble()),
         )
@@ -889,8 +907,8 @@ open class RCTMGLMapView(private val mContext: Context, var mManager: RCTMGLMapV
     private fun toGravity(kind: String, viewPosition: Int): Int {
         return when (viewPosition) {
             0 -> (Gravity.TOP or Gravity.LEFT)
-            1 -> (Gravity.BOTTOM or Gravity.LEFT)
-            2 -> (Gravity.TOP or Gravity.RIGHT)
+            1 -> (Gravity.TOP or Gravity.RIGHT)
+            2 -> (Gravity.BOTTOM or Gravity.LEFT)
             3 -> (Gravity.BOTTOM or Gravity.RIGHT)
             else -> {
                 Logger.e(

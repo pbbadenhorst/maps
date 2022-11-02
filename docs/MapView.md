@@ -6,6 +6,7 @@ MapView backed by Mapbox Native GL
 | Prop | Type | Default | Required | Description |
 | ---- | :-- | :----- | :------ | :---------- |
 | contentInset | `union` | `none` | `false` | The distance from the edges of the map view’s frame to the edges of the map view’s logical viewport. |
+| projection | `enum` | `'mercator'` | `false` | The projection used when rendering the map |
 | style | `any` | `none` | `false` | Style for wrapping React Native View |
 | styleURL | `string` | `none` | `false` | Style URL for map - notice, if non is set it _will_ default to `MapboxGL.StyleURL.Street` |
 | styleJSON | `string` | `none` | `false` | StyleJSON for map - according to TileJSON specs: https://github.com/mapbox/tilejson-spec |
@@ -118,12 +119,12 @@ this._map.queryRenderedFeaturesAtPoint([30, 40], ['==', 'type', 'Point'], ['id1'
 
 ### queryRenderedFeaturesInRect(bbox[, filter][, layerIDs])
 
-Returns an array of rendered map features that intersect with the given rectangle,<br/>restricted to the given style layers and filtered by the given predicate.
+Returns an array of rendered map features that intersect with the given rectangle,<br/>restricted to the given style layers and filtered by the given predicate. In v10,<br/>passing an empty array will query the entire visible bounds of the map.
 
 #### arguments
 | Name | Type | Required | Description  |
 | ---- | :--: | :------: | :----------: |
-| `bbox` | `Array` | `Yes` | A rectangle expressed in the map view’s coordinate system. |
+| `bbox` | `Array` | `Yes` | A rectangle expressed in the map view’s coordinate system. For v10, this can be an empty array to query the visible map area. |
 | `filter` | `Array` | `No` | A set of strings that correspond to the names of layers defined in the current style. Only the features contained in these layers are included in the returned array. |
 | `layerIDs` | `Array` | `No` |  A array of layer id's to filter the features by |
 

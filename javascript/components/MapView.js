@@ -58,6 +58,11 @@ class MapView extends NativeBridgeComponent(
     ]),
 
     /**
+     * The projection used when rendering the map
+     */
+    projection: PropTypes.oneOf(['mercator', 'globe']),
+
+    /**
      * Style for wrapping React Native View
      */
     style: PropTypes.any,
@@ -294,6 +299,7 @@ class MapView extends NativeBridgeComponent(
   };
 
   static defaultProps = {
+    projection: 'mercator',
     localizeLabels: false,
     scrollEnabled: true,
     pitchEnabled: true,
@@ -391,19 +397,25 @@ class MapView extends NativeBridgeComponent(
         );
         if (props.onRegionDidChange) {
           console.warn(
-            'rnmapbox/maps: only one of  MapView.onRegionDidChange or onMapIdle is supported',
+            'rnmapbox/maps: only one of MapView.onRegionDidChange or onMapIdle is supported',
           );
         }
       }
       if (addIfHasHandler('CameraChanged')) {
         console.warn(
-          'onCameraChanged is deprecated and will be removed in next beta - please use onRegionWillChange',
+          'onCameraChanged is deprecated and will be removed in next beta - please use onRegionIsChanging',
         );
-        if (props.onRegionWillChange) {
+        if (props.onRegionIsChanging) {
           console.warn(
-            'rnmapbox/maps: only one of MapView.onRegionWillChange or onCameraChanged is supported',
+            'rnmapbox/maps: only one of MapView.onRegionIsChanging or onCameraChanged is supported',
           );
         }
+      }
+
+      if (props.onRegionWillChange) {
+        console.warn(
+          'onRegionWillChange is deprecated and will be removed in v10 - please use onRegionIsChanging',
+        );
       }
 
       this._runNativeCommand('setHandledMapChangedEvents', this._nativeRef, [
@@ -495,33 +507,38 @@ class MapView extends NativeBridgeComponent(
 
   /**
    * Returns an array of rendered map features that intersect with the given rectangle,
-   * restricted to the given style layers and filtered by the given predicate.
+   * restricted to the given style layers and filtered by the given predicate. In v10,
+   * passing an empty array will query the entire visible bounds of the map.
    *
    * @example
    * this._map.queryRenderedFeaturesInRect([30, 40, 20, 10], ['==', 'type', 'Point'], ['id1', 'id2'])
    *
-   * @param  {Array<Number>} bbox - A rectangle expressed in the map view’s coordinate system.
+   * @param  {Array<Number>} bbox - A rectangle expressed in the map view’s coordinate system. For v10, this can be an empty array to query the visible map area.
    * @param  {Array=} filter - A set of strings that correspond to the names of layers defined in the current style. Only the features contained in these layers are included in the returned array.
    * @param  {Array=} layerIDs -  A array of layer id's to filter the features by
    * @return {FeatureCollection}
    */
   async queryRenderedFeaturesInRect(bbox, filter = [], layerIDs = []) {
-    if (!bbox || bbox.length !== 4) {
+    if (
+      bbox != null &&
+      (bbox.length === 4 || (MapboxGL.MapboxV10 && bbox.length === 0))
+    ) {
+      const res = await this._runNativeCommand(
+        'queryRenderedFeaturesInRect',
+        this._nativeRef,
+        [bbox, getFilter(filter), layerIDs],
+      );
+
+      if (isAndroid()) {
+        return JSON.parse(res.data);
+      }
+
+      return res.data;
+    } else {
       throw new Error(
-        'Must pass in a valid bounding box[top, right, bottom, left]',
+        'Must pass in a valid bounding box: [top, right, bottom, left]. An empty array [] is also acceptable in v10.',
       );
     }
-    const res = await this._runNativeCommand(
-      'queryRenderedFeaturesInRect',
-      this._nativeRef,
-      [bbox, getFilter(filter), layerIDs],
-    );
-
-    if (isAndroid()) {
-      return JSON.parse(res.data);
-    }
-
-    return res.data;
   }
 
   /**
