@@ -36,7 +36,7 @@
     "type:check": "npx tsc --noEmit",
     "test:plugin": "expo-module test plugin",
     "build:plugin": "npx tsc --build plugin",
-    "build": "bob build && cp -r assets lib",
+    "build": "bob build",
     "lint:plugin": "eslint plugin/src/*",
     "prepare": "bob build && husky install"
   },
